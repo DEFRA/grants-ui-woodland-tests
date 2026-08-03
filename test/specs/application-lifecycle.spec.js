@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { authenticateTo } from '../utils/auth.js'
 import { clearApplicationData } from '../utils/backend.js'
 import { clearExpectation, setDefaultStatusQuery404Response, getApplicationSubmission, setStatusQueryResponse } from '../utils/gas.js'
+import { Mongo } from '../utils/mongo.js'
 
 const CRN = '1100943838'
 const SBI = '107173507'
@@ -40,7 +41,7 @@ test.describe('Woodland Management Plan application lifecycle', () => {
     statusQuery404ExpectationId = undefined
   })
 
-  test('submits, amends, receives an offer, and is withdrawn', { tag: ['@ci'] }, async ({ page: initialPage, browser }) => {
+  test('submits, amends, receives an offer, submits claims, and is withdrawn', { tag: ['@ci'] }, async ({ page: initialPage, browser }) => {
     let page = initialPage
     let referenceNumber
 
@@ -172,6 +173,7 @@ test.describe('Woodland Management Plan application lifecycle', () => {
       await authenticateTo(page, 'woodland', CRN)
       await expect(page).toHaveURL('/woodland/returned-to-customer')
       await expect(page.getByRole('heading', { level: 1 })).toContainText('returned to you to make amendments')
+      expect(await Mongo.getApplicationStatus(SBI, GRANT_CODE)).toBe('REOPENED')
     })
 
     await test.step('amend application and resubmit', async () => {
@@ -221,7 +223,33 @@ test.describe('Woodland Management Plan application lifecycle', () => {
       await expect(page).toHaveURL('/agreement')
     })
 
-    await test.step('GAS status is now APPLICATION_WITHDRAWN', async () => {
+    await test.step('GAS status is now STATUS_AWAITING_CLAIM', async () => {
+      expectationIds.push(await setStatusQueryResponse(referenceNumber, 'STATUS_AWAITING_CLAIM'))
+    })
+
+    await test.step('reopen browser and are redirected to /claim', async () => {
+      await page.context().close()
+      const context = await browser.newContext()
+      page = await context.newPage()
+      await authenticateTo(page, 'woodland', CRN)
+      await expect(page).toHaveURL('/woodland/claim')
+      expect(await Mongo.getApplicationStatus(SBI, GRANT_CODE)).toBe('CLAIM_STARTED')
+    })
+
+    await test.step('grants-ui-backend status is now CLAIM_SUBMITTED', async () => {
+      await Mongo.setApplicationStatus(SBI, GRANT_CODE, 'CLAIM_SUBMITTED')
+    })
+
+    await test.step('reopen browser and are redirected to /claim/submitted', async () => {
+      await page.context().close()
+      const context = await browser.newContext()
+      page = await context.newPage()
+      await authenticateTo(page, 'woodland', CRN)
+      await expect(page).toHaveURL('/woodland/claim/submitted')
+    })
+
+    await test.step('grants-ui-backend status is SUBMITTED and GAS status is APPLICATION_WITHDRAWN', async () => {
+      await Mongo.setApplicationStatus(SBI, GRANT_CODE, 'SUBMITTED')
       expectationIds.push(await setStatusQueryResponse(referenceNumber, 'APPLICATION_WITHDRAWN'))
     })
 
@@ -231,6 +259,7 @@ test.describe('Woodland Management Plan application lifecycle', () => {
       page = await context.newPage()
       await authenticateTo(page, 'woodland', CRN)
       await expect(page).toHaveURL('/woodland/check-details')
+      expect(await Mongo.getApplicationStatus(SBI, GRANT_CODE)).toBe('CLEARED')
     })
   })
 })
