@@ -11,6 +11,7 @@ process.env.MOCKSERVER_PORT ??= '1080'
 process.env.GRANTS_UI_BACKEND_AUTH_TOKEN ??= 'auth_token'
 process.env.GRANTS_UI_BACKEND_ENCRYPTION_KEY ??= 'encryption_key'
 process.env.BASE_BACKEND_URL ??= 'http://localhost:3001'
+process.env.MONGO_URI ??= 'mongodb://127.0.0.1:27017/?directConnection=true'
 
 export default defineConfig({
   testDir: './test/specs',
