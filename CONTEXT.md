@@ -24,10 +24,6 @@ _Avoid_: Browser lifecycle, Test lifecycle, Deployment lifecycle
 The Grants Application Service used for submission and lifecycle state.
 _Avoid_: Grants UI Backend, Config API, Playwright helper
 
-**Whitelist**
-A grant-specific access list that controls whether a user can enter the journey.
-_Avoid_: Role, Permission, Feature flag
-
 **Accessibility check**
 An axe-core WCAG 2.x A/AA check run on a journey page.
 _Avoid_: Visual test, Smoke check, Lint
