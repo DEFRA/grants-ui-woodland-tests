@@ -240,12 +240,12 @@ test.describe('Woodland Management Plan application lifecycle', () => {
       await Mongo.setApplicationStatus(SBI, GRANT_CODE, 'CLAIM_SUBMITTED')
     })
 
-    await test.step('reopen browser and are redirected to /claim/submitted', async () => {
+    await test.step('reopen browser and are redirected to /claim-confirmation', async () => {
       await page.context().close()
       const context = await browser.newContext()
       page = await context.newPage()
       await authenticateTo(page, 'woodland', CRN)
-      await expect(page).toHaveURL('/woodland/claim/submitted')
+      await expect(page).toHaveURL('/woodland/claim-confirmation')
     })
 
     await test.step('grants-ui-backend status is SUBMITTED and GAS status is APPLICATION_WITHDRAWN', async () => {
