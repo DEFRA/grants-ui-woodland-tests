@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { authenticateTo } from '../utils/auth.js'
 import { clearApplicationData } from '../utils/backend.js'
+import { analyzeAccessibility } from '../utils/accessibility.js'
 import { clearExpectation, setDefaultStatusQuery404Response, getApplicationSubmission, setStatusQueryResponse } from '../utils/gas.js'
 import { Mongo } from '../utils/mongo.js'
 
@@ -173,6 +174,7 @@ test.describe('Woodland Management Plan application lifecycle', () => {
       await authenticateTo(page, 'woodland', CRN)
       await expect(page).toHaveURL('/woodland/returned-to-customer')
       await expect(page.getByRole('heading', { level: 1 })).toContainText('returned to you to make amendments')
+      await analyzeAccessibility(page)
       expect(await Mongo.getApplicationStatus(SBI, GRANT_CODE)).toBe('REOPENED')
     })
 
@@ -233,6 +235,7 @@ test.describe('Woodland Management Plan application lifecycle', () => {
       page = await context.newPage()
       await authenticateTo(page, 'woodland', CRN)
       await expect(page).toHaveURL('/woodland/claim')
+      await analyzeAccessibility(page)
       expect(await Mongo.getApplicationStatus(SBI, GRANT_CODE)).toBe('CLAIM_STARTED')
     })
 
@@ -246,6 +249,7 @@ test.describe('Woodland Management Plan application lifecycle', () => {
       page = await context.newPage()
       await authenticateTo(page, 'woodland', CRN)
       await expect(page).toHaveURL('/woodland/claim-confirmation')
+      await analyzeAccessibility(page)
     })
 
     await test.step('grants-ui-backend status is SUBMITTED and GAS status is APPLICATION_WITHDRAWN', async () => {
