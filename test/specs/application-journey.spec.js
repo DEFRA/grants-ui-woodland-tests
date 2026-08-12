@@ -325,6 +325,7 @@ test.describe('Woodland Management Plan application', () => {
       await expect(printTab.getByRole('heading', { level: 1 })).toContainText('Apply for a woodland management plan (WMP)')
       await expect(printTab.getByText(referenceNumber)).toBeVisible()
       await expect(printTab.getByRole('button', { name: 'Print this page' })).toBeVisible()
+      await analyzeAccessibility(printTab)
       await printTab.close()
     })
 
