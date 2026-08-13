@@ -235,12 +235,29 @@ test.describe('Woodland Management Plan application lifecycle', () => {
       page = await context.newPage()
       await authenticateTo(page, 'woodland', CRN)
       await expect(page).toHaveURL('/woodland/claim')
-      await analyzeAccessibility(page)
       expect(await Mongo.getApplicationStatus(SBI, GRANT_CODE)).toBe('CLAIM_STARTED')
     })
 
-    await test.step('grants-ui-backend status is now CLAIM_SUBMITTED', async () => {
-      await Mongo.setApplicationStatus(SBI, GRANT_CODE, 'CLAIM_SUBMITTED')
+    await test.step('review WMP claim', async () => {
+      await expect(page.getByRole('heading', { level: 1 })).toContainText('Review your WMP claim')
+      await expect(page.locator('.govuk-inset-text')).toContainText('Total claim amount: £3,841.54')
+      await analyzeAccessibility(page)
+      await page.getByRole('button', { name: 'Continue' }).click()
+    })
+
+    await test.step('submit claim', async () => {
+      await expect(page).toHaveURL('/woodland/claim-declaration')
+      await expect(page.getByRole('heading', { level: 1 })).toContainText('Declarations')
+      await analyzeAccessibility(page)
+      await page.getByRole('button', { name: 'Confirm and submit' }).click()
+      expect(await Mongo.getApplicationStatus(SBI, GRANT_CODE)).toBe('CLAIM_SUBMITTED')
+    })
+
+    await test.step('claim confirmation', async () => {
+      await expect(page).toHaveURL('/woodland/claim-confirmation')
+      await expect(page.getByRole('heading', { level: 1 })).toContainText('Claim submitted')
+      await expect(page.locator('.govuk-panel__body')).toContainText(`${referenceNumber}-C0001`)
+      await analyzeAccessibility(page)
     })
 
     await test.step('reopen browser and are redirected to /claim-confirmation', async () => {
@@ -249,7 +266,6 @@ test.describe('Woodland Management Plan application lifecycle', () => {
       page = await context.newPage()
       await authenticateTo(page, 'woodland', CRN)
       await expect(page).toHaveURL('/woodland/claim-confirmation')
-      await analyzeAccessibility(page)
     })
 
     await test.step('grants-ui-backend status is SUBMITTED and GAS status is APPLICATION_WITHDRAWN', async () => {
