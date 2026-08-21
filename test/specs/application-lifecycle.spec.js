@@ -256,7 +256,7 @@ test.describe('Woodland Management Plan application lifecycle', () => {
     await test.step('claim confirmation', async () => {
       await expect(page).toHaveURL('/woodland/claim-confirmation')
       await expect(page.getByRole('heading', { level: 1 })).toContainText('Claim submitted')
-      await expect(page.locator('.govuk-panel__body')).toContainText(`${referenceNumber}-C0001`)
+      await expect(page.locator('.govuk-panel__body')).toContainText(`${referenceNumber}-C01`)
       await analyzeAccessibility(page)
     })
 
