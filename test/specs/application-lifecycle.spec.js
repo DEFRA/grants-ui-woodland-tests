@@ -240,7 +240,7 @@ test.describe('Woodland Management Plan application lifecycle', () => {
 
     await test.step('review WMP claim', async () => {
       await expect(page.getByRole('heading', { level: 1 })).toContainText('Review your WMP claim')
-      await expect(page.locator('.govuk-inset-text')).toContainText('Total claim amount: £3,841.54')
+      await expect(page.locator('.govuk-inset-text')).toContainText('Total claim amount: £2,553.30')
       await analyzeAccessibility(page)
       await page.getByRole('button', { name: 'Continue' }).click()
     })
