@@ -120,7 +120,7 @@ test.describe('Woodland Management Plan application', () => {
 
     await test.step('eligibility-grazing-rights', async () => {
       await expect(page).toHaveURL('/woodland/eligibility-grazing-rights')
-      await expect(page.getByRole('heading', { level: 1 })).toContainText('Are you applying for land covered by common or shared grazing rights?')
+      await expect(page.getByRole('heading', { level: 1 })).toContainText('Does your application include common land or shared grazing?')
       await page.getByRole('link', { name: 'Back', exact: true }).click()
     })
 
@@ -150,10 +150,17 @@ test.describe('Woodland Management Plan application', () => {
 
     await test.step('eligibility-grazing-rights', async () => {
       await expect(page).toHaveURL('/woodland/eligibility-grazing-rights')
-      await expect(page.getByRole('heading', { level: 1 })).toContainText('Are you applying for land covered by common or shared grazing rights?')
+      await expect(page.getByRole('heading', { level: 1 })).toContainText('Does your application include common land or shared grazing?')
       await analyzeAccessibility(page)
       await page.getByRole('radio', { name: 'Yes' }).click()
       await page.getByRole('button', { name: 'Save and continue' }).click()
+    })
+
+    await test.step('eligibility-grazing-rights-guidance', async () => {
+      await expect(page).toHaveURL('/woodland/eligibility-grazing-rights-guidance')
+      await expect(page.getByRole('heading', { level: 1 })).toContainText('What you need to do')
+      await analyzeAccessibility(page)
+      await page.getByRole('button', { name: 'Confirm and continue' }).click()
     })
 
     await test.step('eligibility-valid-wmp -> eligibility-higher-tier', async () => {
