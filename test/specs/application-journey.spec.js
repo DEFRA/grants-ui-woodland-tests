@@ -148,15 +148,24 @@ test.describe('Woodland Management Plan application', () => {
       await page.getByRole('button', { name: 'Save and continue' }).click()
     })
 
-    await test.step('eligibility-grazing-rights', async () => {
+    await test.step('eligibility-grazing-rights -> eligibility-valid-wmp', async () => {
       await expect(page).toHaveURL('/woodland/eligibility-grazing-rights')
       await expect(page.getByRole('heading', { level: 1 })).toContainText('Does your application include common land or shared grazing?')
       await analyzeAccessibility(page)
+      await page.getByRole('radio', { name: 'No' }).click()
+      await page.getByRole('button', { name: 'Save and continue' }).click()
+
+      await expect(page).toHaveURL('/woodland/eligibility-valid-wmp')
+      await page.getByRole('link', { name: 'Back', exact: true }).click()
+    })
+
+    await test.step('eligibility-grazing-rights -> eligibility-grazing-rights-guidance', async () => {
+      await expect(page).toHaveURL('/woodland/eligibility-grazing-rights')
       await page.getByRole('radio', { name: 'Yes' }).click()
       await page.getByRole('button', { name: 'Save and continue' }).click()
     })
 
-    await test.step('eligibility-grazing-rights-guidance', async () => {
+    await test.step('eligibility-grazing-rights-guidance -> eligibility-valid-wmp', async () => {
       await expect(page).toHaveURL('/woodland/eligibility-grazing-rights-guidance')
       await expect(page.getByRole('heading', { level: 1 })).toContainText('What you need to do')
       await analyzeAccessibility(page)
@@ -320,6 +329,11 @@ test.describe('Woodland Management Plan application', () => {
       await analyzeAccessibility(page)
       await expect(page.locator('.govuk-panel__body')).toContainText(/WMP-[A-Z0-9]+-[A-Z0-9]+/)
       referenceNumber = await page.locator('.govuk-panel__body strong').textContent()
+
+      await test.step('common land extra guidance', async () => {
+        await expect(page.getByRole('heading', { level: 2, name: 'What you need to do' })).toBeVisible()
+        await expect(page.getByText('Because your application includes common land or shared grazing')).toBeVisible()
+      })
     })
 
     await test.step('print-submitted-application', async () => {
