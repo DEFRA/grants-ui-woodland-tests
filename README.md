@@ -1,6 +1,8 @@
 # grants-ui-woodland-tests
 
-Playwright journey test suite for the Woodland Management Plan grant.
+Runner for the Woodland Management Plan grant journey tests on the CDP Portal.
+
+The tests themselves live in [grants-config-woodland](https://github.com/DEFRA/grants-config-woodland) under `test/grants-ui`, alongside the journey config they exercise. This repo holds no specs: on every run it fetches the config repo at its latest release tag into `.woodland-config/` (gitignored) and runs the tests from there. This is the same tag grants-ui's CI uses. Set `WOODLAND_TAG` to pin a release, e.g. `WOODLAND_TAG=1.40.9 npm test`.
 
 ## What This Tests
 
@@ -18,38 +20,9 @@ This test suite provides journey testing coverage for:
 - Node.js `>=24.15.0 <25.0.0` (check with `node --version`)
 - npm (comes with Node.js)
 
-## Quick Start
-
-### 1. Clone and Install
-
-```bash
-git clone https://github.com/DEFRA/grants-ui-woodland-tests.git
-cd grants-ui-woodland-tests
-npm install
-npx playwright install chromium
-```
-
-### 2. Run Tests
-
-```bash
-npm run test:local
-```
-
-Default environment variables for local runs are set in `playwright.local.config.js`. Override any of them by creating a `.env` file in the project root.
-
 ## Running the Test Suite
 
-There are three Playwright configuration files for different environments:
-
-### Local Development — playwright.local.config.js
-
-```bash
-npm run test:local
-```
-
-- Runs against `http://localhost:3000`
-- Headed browser (visible)
-- Report opens automatically on failure
+The suite runs on the CDP Portal only. To run the journey tests locally, run them from grants-config-woodland.
 
 ### CDP Portal — playwright.cdp.config.js
 
@@ -63,56 +36,17 @@ npm test
 - Publishes an HTML report to S3
 - Runs in Microsoft Edge (Playwright's `msedge` channel). The CDP Portal runner is Linux, so this is the Linux build of Edge rather than true Windows Edge — best endeavours coverage, not a substitute for testing on Windows Edge directly
 
-### CI Pipeline — playwright.ci.config.js
-
-```bash
-npm run test:ci
-```
-
-- Runs against the URL specified by the `BASE_URL` env var
-- Used in the `grants-ui` GitHub Actions CI pipeline
-- Automated execution on creating and updating a `grants-ui` PR
-- No report generated, console logging only
-
-## Test Coverage
-
-| Spec | Description |
-|---|---|
-| `application-journey.spec.js` | Full eligible WMP application: sign in → start → check details → eligibility → woodland details → summary → declaration → confirmation. Includes WCAG 2.x A/AA axe-core accessibility checks on every page. |
-| `application-lifecycle.spec.js` | Full GAS lifecycle: submit → amend → offer sent → withdrawn (`@ci` only) |
-
 ## Project Structure
 
 ```
 grants-ui-woodland-tests/
-├── test/
-│   ├── utils/
-│   └── specs/
-├── playwright.cdp.config.js    # CDP Portal config
-├── playwright.local.config.js  # Local development config
-└── playwright.ci.config.js     # CI pipeline config
-```
-
-## Authentication
-
-Journey tests authenticate via the `Defra ID` OIDC provider for the environment in use (real instance or stub). The `authenticate()` helper function handles the full OIDC redirect flow automatically.
-
-**Password:** hardcoded as `x` (the stub always accepts this password)
-
-Each test must supply its own CRN so tests can run in parallel without sharing session state.
-
-```js
-import { login } from '../utils/auth.js'
-
-test('my journey test', async ({ page }) => {
-  await login(page, { crn: '1234567890' })
-  // ... rest of test
-})
+├── scripts/fetch-tests.sh      # Fetches the tests from grants-config-woodland
+└── playwright.cdp.config.js    # CDP Portal config
 ```
 
 ## Writing Tests
 
-Tests are written using the Playwright test runner in `test/specs/`. Use `login()` from `test/helpers/auth.js` for any test that requires authentication.
+Tests are written in [grants-config-woodland](https://github.com/DEFRA/grants-config-woodland) under `test/grants-ui/test/specs`. Change them there and cut a config release; this repo picks up the new release on its next run.
 
 ## Test Reports
 
@@ -124,10 +58,11 @@ The native Playwright HTML report is used. When running on CDP, the report is au
 
 - Ensure you have the correct Node.js version: `node --version` should be `>=24.15.0 <25.0.0`
 - Ensure the service under test is running and accessible at the configured base URL
-- Run `npx playwright install chromium` if the browser is not installed
+- Run `npx playwright install msedge` if the browser is not installed
 
 ## Related Repositories
 
+- [grants-config-woodland](https://github.com/DEFRA/grants-config-woodland) - Woodland config and the journey tests themselves
 - [grants-ui](https://github.com/DEFRA/grants-ui) - The main grants application UI service
 
 ## Support

@@ -1,6 +1,6 @@
 # grants-ui-woodland-tests
 
-Playwright journey tests for the Woodland Management Plan grant application and lifecycle.
+CDP runner for the Woodland Management Plan journey tests, which live in `grants-config-woodland`.
 
 ## Language
 
@@ -35,3 +35,11 @@ _Avoid_: Test login, Local account, Browser session
 **CRN**
 Customer Reference Number: the Defra ID identifier for an individual user.
 _Avoid_: SBI, User ID, Account number
+
+**GAS schema**
+The GAS JSON schema at `configurations/woodland/gas/gas.json` in `grants-config-woodland`, fetched with the journey tests and used to validate a submitted application's `answers` payload shape.
+_Avoid_: GAS response, Submission payload (when the schema file itself is meant)
+
+**Config release**
+A tagged release of `grants-config-woodland` (e.g. `1.40.9`). The journey tests and the journey config ship together in it, and each run fetches the latest one unless `WOODLAND_TAG` pins one.
+_Avoid_: Test version, Test image tag, grants-ui version

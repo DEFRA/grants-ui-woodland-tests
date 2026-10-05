@@ -1,83 +1,89 @@
 # Repository Guidelines
 
-Playwright journey test suite for the Woodland Grant service, designed to run on the Defra CDP platform and in the `grants-ui` CI pipeline.
+CDP Portal runner for the Woodland grant journey tests. **This repo contains no specs.** The Playwright tests live in `grants-config-woodland` under `test/grants-ui/`, next to the journey config they exercise, because the two change in lockstep. grants-ui's CI pipeline builds and runs them straight from that repo (`grants-ui/compose.tests.yml`, `tools/docker-compose-smoke-test.sh`); this repo does the same for CDP runs. To run the tests locally, run them from `grants-config-woodland`.
 
-## Project Structure & Module Organization
+## How the tests are fetched
 
-Playwright specs live in `test/specs/`, shared helpers in `test/utils/`, and JSON schemas in `test/schemas/`. Environment-specific execution is configured by `playwright.local.config.js`, `playwright.cdp.config.js`, and `playwright.ci.config.js`. Report publishing is handled by `bin/publish-tests.sh`.
+`scripts/fetch-tests.sh` runs first in `npm test`. (`.npmrc` sets `ignore-scripts=true`, so npm `pre*` hooks won't run; keep the fetch chained into the script.) It:
+
+1. Resolves the latest `grants-config-woodland` tag from `https://api.github.com/repos/DEFRA/grants-config-woodland/tags` (`.[0].name`), the same lookup grants-ui uses. Set `WOODLAND_TAG` to pin a release instead.
+2. Downloads the source tarball at that tag and extracts it into `.woodland-config/` (gitignored and dockerignored), replacing any previous copy.
+
+On CDP, GitHub is only reachable via the egress proxy. The script passes `CDP_HTTPS_PROXY` (falling back to `CDP_HTTP_PROXY`) to its own `curl` calls only, without exporting `HTTP(S)_PROXY`, so the browser's route to grants-ui is unchanged. Without the proxy the tags lookup returns nothing and Playwright never runs, which shows up as `/app/playwright-report is not found` at the publish step.
+
+The Playwright config sets `testDir` to `./.woodland-config/test/grants-ui/test/specs`. The spec reads the GAS schema by relative path (`configurations/woodland/gas/gas.json` in the same tarball), so the whole repo is extracted rather than just `test/grants-ui`.
+
+The fetched code has no `node_modules` of its own. Its imports (`@playwright/test`, `@axe-core/playwright`, `ajv`, `mockserver-client`, `mongodb`) resolve up to **this** repo's `node_modules`. Playwright loads every spec file even when `grep` filters its tests out, so the `@ci`-only lifecycle spec's imports must still resolve here. Keep `package.json` dependencies in line with `grants-config-woodland/test/grants-ui/package.json`, and keep `@playwright/test` in line with the `mcr.microsoft.com/playwright` tag in the `Dockerfile`. Don't install deps inside `.woodland-config`: a second copy of `@playwright/test` breaks the runner.
+
+To change a test, change it in `grants-config-woodland` and cut a release. This repo picks it up on its next run without being rebuilt.
 
 ```
-test/
-  utils/
-    auth.js              # login() helper — handles OIDC flow
-    gas.js               # MockServer wrapper for GAS interactions
-  specs/
-    application-journey.spec.js    # Full WMP happy path journey
-    application-lifecycle.spec.js  # Submit → amend → offer → withdraw (@ci only)
+scripts/fetch-tests.sh        # fetches grants-config-woodland at the latest tag
+playwright.cdp.config.js      # CDP Portal config
+bin/publish-tests.sh          # publishes the HTML report to S3 (CDP only)
+.woodland-config/             # fetched at run time, not committed
 ```
 
 ## Tech Stack
 
-- **Test framework**: Playwright (`@playwright/test`) — JavaScript only, no TypeScript
+- **Test framework**: Playwright (`@playwright/test`), JavaScript only, no TypeScript
 - **Node version**: 24.15.0 (see `.nvmrc`)
 
-## Build, Test, and Development Commands
-
-- `npm install`: install dependencies.
-- `npx playwright install chromium`: install the browser for local runs.
-- `npm run test:local`: run against local Grants UI.
-- `npm test`: run the CDP Portal configuration.
-- `npm run test:ci`: run the CI configuration.
-- `npm run report:publish`: publish the Playwright HTML report.
-
-### Local — `npm run test:local`
-
-Runs against a local instance of `grants-ui` at `http://localhost:3000`. Uses a headed browser. Config: `playwright.local.config.js`.
-
-### grants-ui CI pipeline — `npm run test:ci`
-
-Runs inside the `grants-ui` GitHub Actions CI pipeline against a dockerised instance of the system under test. The base URL is provided via the `BASE_URL` env var. Worker count is controlled via `MAX_INSTANCES` (default 1). Config: `playwright.ci.config.js`.
-
-### CDP — `npm test`
-
-Runs against a CDP-deployed instance of `grants-ui`. The base URL is built from the `ENVIRONMENT` env var:
-
-```
-https://grants-ui.${ENVIRONMENT}.cdp-int.defra.cloud
-```
-
-Triggered via the CDP Portal. The HTML report is published to S3 after the run. Config: `playwright.cdp.config.js`.
-
-## npm scripts
+## Commands
 
 | Script | What it does |
 |---|---|
-| `npm test` | CDP mode (requires `ENVIRONMENT` env var) |
-| `npm run test:local` | Local mode against localhost:3000 |
-| `npm run test:ci` | CI pipeline mode (requires `BASE_URL` env var) |
+| `npm test` | Fetch tests, run in CDP mode (requires `ENVIRONMENT` env var) |
 | `npm run report:publish` | Push `playwright-report/` to S3 via `RESULTS_OUTPUT_S3_PATH` |
 
-## Coding Style & Naming Conventions
+CDP base URL: `https://grants-ui.${ENVIRONMENT}.cdp-int.defra.cloud`.
 
-Use ES modules and the local Playwright style. Keep specs named after the lifecycle or journey they cover and keep helpers focused on authentication, backend setup, GAS, and accessibility.
+This repo is **not** part of the grants-ui CI pipeline and has no local mode, so the CDP config is the only one.
+
+## Domain Language
+
+Use `CONTEXT.md` as the source of truth for woodland grant journey-test language.
+
+## Developer Addenda
+
+Developers can add their own `AGENTS.local.md`, which should be read as an addendum to this file. Keep it local to your machine and don't commit it.
+
+## Entrypoint behaviour
+
+`entrypoint.sh` follows the standard CDP test-suite pattern: it always runs `npm test` (no command is passed in), then publishes the report.
+
+- If tests fail, a `FAILED` file is written and the process exits with code 1
+- Report publishing via `npm run report:publish` always runs, and `RESULTS_OUTPUT_S3_PATH` must be set. The image is only for CDP
+
+## Docker
+
+The `Dockerfile` installs the AWS CLI and Playwright's Microsoft Edge (`msedge`) with system dependencies via the `mcr.microsoft.com/playwright` base image. Build for linux/amd64 on M1 Macs:
+
+```sh
+docker build . --platform=linux/amd64
+```
+
+## GitHub Actions
+
+- `.github/workflows/check-pull-request.yml` — installs dependencies on PRs
+- `.github/workflows/publish.yml` — builds and publishes the Docker image on merge to main
+
+## Spec-authoring notes (to move to grants-config-woodland)
+
+These notes cover writing the specs, which now live in `grants-config-woodland/test/grants-ui`. They are kept here until that repo's AGENTS.md takes them over. Paths below are relative to `test/grants-ui` in that repo.
+
+#### Coding style
 
 - **JavaScript only** — no TypeScript. Defra policy.
 - **No assertions in page objects** — page objects encapsulate navigation and interaction only. Assertions belong in the spec.
 - **Helper functions at the bottom of the file** — any file-scoped helper functions (e.g. `assertTaskStatuses`) must be declared after the `test.describe` block, not before.
+- Keep specs named after the lifecycle or journey they cover, and keep helpers focused on authentication, backend setup, GAS, and accessibility.
 
-## Domain Language
+#### Accessibility checks
 
-Use `CONTEXT.md` as the source of truth for woodland grant journey-test language. Prefer those terms in specs, helpers, docs, and generated changes.
+Preserve the `analyzeAccessibility(page)` checks (from `test/utils/accessibility.js`) on journey pages.
 
-## Developer Addenda
-
-Developers can add their own `AGENTS.local.md` and should be read as an addendum to this file. Keep that file local to your machine and do not commit it.
-
-## Testing Guidelines
-
-Preserve accessibility checks on journey pages. Run the relevant Playwright config locally or in CI mode before opening a PR.
-
-### GAS (Grant Application Service)
+#### GAS (Grant Application Service)
 
 `grants-ui` submits applications to an external service called GAS. In CI, GAS is replaced by a **MockServer** instance, which is why tests that interact with GAS are tagged `@ci` only.
 
@@ -88,11 +94,11 @@ The `test/utils/gas.js` helper wraps `mockserver-client` and provides:
 - `getApplicationSubmission(referenceNumber)` — retrieve the recorded POST request from MockServer for assertions
 - `clearExpectation(expectationId)` — clean up; called in `afterEach` for all IDs accumulated during the test
 
-**Env vars required:** `MOCKSERVER_HOST`, `MOCKSERVER_PORT`. These are set by the CI environment. Tests using GAS are tagged `@ci` only, so MockServer is always available when these tests run.
+**Env vars required:** `MOCKSERVER_HOST`, `MOCKSERVER_PORT`. These are set by the CI environment.
 
-### Authentication
+#### Authentication
 
-All journey tests authenticate via the `Defra ID` OIDC provider used by `grants-ui`. In local running, CI, and the CDP Dev environment this is a stub (`fct-defra-id-stub`). In the CDP Test environment this is a real instance of Defra ID, which can be slower to respond and must be catered for. The `login()` helper in `test/helpers/auth.js` handles the full flow:
+All journey tests authenticate via the `Defra ID` OIDC provider used by `grants-ui`. In local running, CI, and the CDP Dev environment this is a stub (`fct-defra-id-stub`). In the CDP Test environment this is a real instance of Defra ID, which can be slower to respond and must be catered for. The `authenticateTo(page, path, crn)` helper in `test/utils/auth.js` handles the full flow:
 
 1. Navigate to a protected URL → app redirects to stub login page
 2. Fill in CRN + password and submit
@@ -101,9 +107,7 @@ All journey tests authenticate via the `Defra ID` OIDC provider used by `grants-
 Each spec must supply its own CRN so tests can run in parallel without sharing session state. There is no default — `crn` is required.
 **Password:** hardcoded as `x` (the stub always accepts this password)
 
-The stub must be running and reachable for journey tests to work. In CI it runs as a Docker service defined in `grants-ui/compose.tests.yml`.
-
-### WMP journey pages (in order)
+#### WMP journey pages (in order)
 
 All pages are prefixed `/woodland/`:
 
@@ -129,32 +133,3 @@ All pages are prefixed `/woodland/`:
 | `/confirmation` | Application received |
 
 Conditional pages (not on happy path): `/eligibility-countersignature`, `/eligibility-tenant-obligations`, `/eligibility-wmp-agreement`, and three exit/terminal pages.
-
-## Entrypoint behaviour
-
-`entrypoint.sh` accepts the command as arguments (`"$@"`), defaulting to `npm test` via the Dockerfile `CMD`. This allows the `grants-ui` CI pipeline to override it with `npm run test:ci`.
-
-- If tests fail, a `FAILED` file is written and the process exits with code 1
-- Report publishing via `npm run report:publish` only runs when `CDP_HTTP_PROXY` is set (i.e. on CDP, not in CI)
-- `RESULTS_OUTPUT_S3_PATH` must be set when running on CDP
-
-## Docker
-
-The `Dockerfile` installs the AWS CLI and Playwright's Chromium with system dependencies via `npx playwright install --with-deps chromium`. Build for linux/amd64 on M1 Macs:
-
-```sh
-docker build . --platform=linux/amd64
-```
-
-## CI pipeline integration
-
-This suite is integrated into the `grants-ui` CI pipeline. Key points:
-
-- `ignoreHTTPSErrors: true` is set in `playwright.ci.config.js` — the CI environment uses a self-signed cert that Playwright cannot resolve via `NODE_EXTRA_CA_CERTS` (Playwright uses its own certificate store)
-- `MAX_INSTANCES` env var controls worker count (default 1)
-- No report is generated or published in CI mode — console output only (`list` reporter)
-
-## GitHub Actions
-
-- `.github/workflows/check-pull-request.yml` — installs dependencies on PRs
-- `.github/workflows/publish.yml` — builds and publishes the Docker image on merge to main

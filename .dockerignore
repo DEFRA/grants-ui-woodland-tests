@@ -3,3 +3,6 @@ Dockerfile
 .git
 .github
 .husky
+.woodland-config
+playwright-report
+test-results
